@@ -6,7 +6,7 @@ const canvas = document.getElementById("gameCanvas")
 const ctx = canvas.getContext("2d")
 
 canvas.width = window.innerWidth * 0.9
-canvas.height = window.innerHeight * 0.7
+canvas.height = window.innerHeight * 0.65
 
 const width = canvas.width
 const height = canvas.height
@@ -36,6 +36,9 @@ let musicStarted = false
 let gameOver = false
 let exit = false
 
+let transitionAlpha = 1
+let transitionSpeed = 0.04
+
 let wait = true
 let normal = false
 let easy = false
@@ -44,16 +47,46 @@ let choosingKeys = true
 let choosingSong = true
 let keyInput = []
 
+const laneColor = ["#fca190", "#bff5f0", "#e2f0b4", "#fac296"]
+
 const songs = [
-    {name:"Twinkle-twinkle Little Star (小星星)", audio:"twinkle.wav", midi:"twinkle.mid"},
-    {name:"Old MacDonald Had a Farm (王老先生有塊地)", audio:"OldMcDHadAFarm.wav", midi:"OldMcDHadAFarm.mid"},
-    {name:"Ode to Joy", audio:"odetojoy.wav", midi:"odetojoy.mid"},
-    {name:"Tian Mimi (甜蜜蜜)", audio:"tianmimi.wav", midi:"tianmimi.mid"},
-    {name:"We Wish You A Merry Christmas", audio:"WeWishYouAMerryChristmas.wav", midi:"WeWishYouAMerryChristmas2.mid"}
+    {name:"Twinkle-twinkle Little Star (小星星)", audio:"twinkle.wav", midi:"twinkle.mid", bg : "Twinklebg.png"},
+    {name:"Old MacDonald Had a Farm (王老先生有塊地)", audio:"OldMcDHadAFarm.wav", midi:"OldMcDHadAFarm.mid", bg : "OldMacbg.png"},
+    {name:"Ode to Joy", audio:"odetojoy.wav", midi:"odetojoy.mid", bg : "Odebg.png"},
+    {name:"Tian Mimi (甜蜜蜜)", audio:"tianmimi.wav", midi:"tianmimi.mid", bg : "tianmimibg.png"},
+    {name:"We Wish You A Merry Christmas", audio:"WeWishYouAMerryChristmas.wav", midi:"WeWishYouAMerryChristmas2.mid", bg : "WeWishUbg.png"}
 ]
 
 let currentSong = 0
 let music = new Audio(songs[currentSong].audio)
+
+const setupBg = new Image()
+setupBg.src = "setupbg.png"
+
+const songBg = []
+
+for(let i = 0; i < songs.length; i++){
+    songBg[i] = new Image()
+    songBg[i].src = songs[i].bg
+}
+
+function drawBg(img, darkAmount = 0.35) {
+    if (img && img.complete) {
+        ctx.drawImage(img, 0, 0, width, height)
+    } else {
+        ctx.fillStyle = "black"
+        ctx.fillRect(0, 0, width, height)
+    }
+
+    // dark overlay so the text, lanes, and notes are easier to see
+    ctx.fillStyle = `rgba(0, 0, 0, ${darkAmount})`
+    ctx.fillRect(0, 0, width, height)
+
+}
+
+function setBg(imagePath) {
+    document.body.style.setProperty("--page-bg", `url("${imagePath}")`)
+}
 
 function showKey(k){
 
@@ -69,6 +102,25 @@ function showKey(k){
     if(k === "ArrowRight") return "→"
 
     return k.toUpperCase()
+}
+
+function drawBox(){
+    for(let i=0;i<lanes;i++){
+        let x = i * laneWidth
+        let boxY = hitZone + 25
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.55)"
+        ctx.fillRect(x + 20, boxY, laneWidth - 40, 55)
+
+        ctx.strokeStyle = laneColor[i]
+        ctx.lineWidth = 3
+        ctx.strokeRect(x + 20, boxY, laneWidth - 40, 55)
+
+        ctx.fillStyle = "white"
+        ctx.font = "20px DotGothic16"
+        ctx.textAlign = "center"
+        ctx.fillText(showKey(laneKeys[i]), x + laneWidth / 2, boxY + 36)
+    }
 }
 
 class Note{
@@ -90,12 +142,15 @@ class Note{
         let y = this.getY(time)
 
         ctx.beginPath()
+        ctx.shadowBlur = 18
+        ctx.shadowColor = laneColor[this.lane]
         ctx.arc(this.x, y, 22, 0, Math.PI * 2)
-        ctx.fillStyle = "white"
+        ctx.fillStyle = laneColor[this.lane]
         ctx.fill()
+        ctx.shadowBlur = 0
 
         ctx.fillStyle = "black"
-        ctx.font = "16px Arial"
+        ctx.font = "16px DotGothic16"
         ctx.textAlign = "center"
 
         ctx.fillText(
@@ -155,6 +210,7 @@ document.addEventListener("keydown",(e)=>{
             if(keyInput.length === 4){
                 laneKeys = keyInput
                 choosingKeys = false
+                startTransition()
             }
         }
 
@@ -170,6 +226,7 @@ if(wait){
             currentSong = Number(e.key) - 1
             music = new Audio(songs[currentSong].audio)
             choosingSong = false
+            startTransition()
         }
         return
     }
@@ -179,6 +236,7 @@ if(wait){
         normal = true
         easy = false
         wait = false
+        startTransition()
         loadMidi()
     }
 
@@ -187,6 +245,7 @@ if(wait){
         easy = true
         normal = false
         wait = false
+        startTransition()
         loadMidi()
     }
 
@@ -218,8 +277,8 @@ function resetGame() {
 
         if(e.key === replaykey){
             resetGame()
-            requestAnimationFrame(game)
-            //location.reload()
+            startTransition()
+            //requestAnimationFrame(game)
         }
 
         if(e.key === changekey){
@@ -232,7 +291,7 @@ function resetGame() {
 
             ctx.clearRect(0,0,width,height)
             ctx.fillStyle = "white"
-            ctx.font = "60px Arial"
+            ctx.font = "60px DotGothic16"
             ctx.textAlign = "center"
             ctx.fillText("THANKS FOR PLAYING", width/2, height/2)
         }
@@ -267,33 +326,65 @@ function resetGame() {
 
 function drawLanes(){
 
-    ctx.strokeStyle = "white"
-
     for(let i=0;i<lanes;i++){
 
+        ctx.fillStyle = "rgba(255, 255, 255, 0.07)"
+        ctx.fillRect(i * laneWidth, 0, laneWidth, height)
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.25)"
+        ctx.lineWidth = 1
+        ctx.strokeRect(i * laneWidth, 0, laneWidth, height)
+
+        ctx.strokeStyle = laneColor[i]
+        ctx.lineWidth = 3
         ctx.strokeRect(
-            i * laneWidth,
-            hitZone - 10,
-            laneWidth,
-            20
+            i * laneWidth + 8,
+            hitZone - 12,
+            laneWidth - 16,
+            24
         )
+    }
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)"
+    ctx.fillRect(0, hitZone, width, 3)
+    drawBox()
+}
+
+function startTransition(){
+    transitionAlpha = 1
+}
+
+function drawTransition(){
+    if(transitionAlpha > 0){
+        ctx.fillStyle = `rgba(0, 0, 0, ${transitionAlpha})`
+        ctx.fillRect(0, 0, width, height)
+        transitionAlpha -= transitionSpeed
+
+        if(transitionAlpha < 0){
+            transitionAlpha = 0
+        }
     }
 }
 
 function beforeGame(){
 
-    ctx.fillStyle = "black"
-    ctx.fillRect(0,0,width,height)
+    ctx.clearRect(0, 0, width, height)
+
+     if(choosingKeys || choosingSong){
+        setBg("setupbg.png")
+    } else {
+        setBg(songs[currentSong].bg)
+    }
 
     ctx.fillStyle = "white"
     ctx.textAlign = "center"
 
     if(choosingKeys){
 
-        ctx.font = "50px Arial"
+        ctx.font = "42px DotGothic16"
         ctx.fillText("INPUT 4 KEYS", width/2, height/2 - 60)
 
-        ctx.font = "28px Arial"
+        ctx.font = "28px DotGothic16"
 
         let preview = ""
 
@@ -302,37 +393,44 @@ function beforeGame(){
         }
 
         ctx.fillText(preview, width/2, height/2 + 10)
+
+        drawTransition()
         return
     }
 
     //layar sbklm gameplay
     if(choosingSong){
 
-        ctx.font = "55px Arial"
+        ctx.font = "48px DotGothic16"
         ctx.fillText("CHOOSE SONG", width/2, height/2 - 120)
 
-        ctx.font = "30px Arial"
-        ctx.fillText("Press the number of the song that you want to play", width/2, height/2 - 50)
+        ctx.font = "24px DotGothic16"
+        ctx.fillText("Press the number of the song that you want to play", width/2, height/2 - 60)
 
-        ctx.fillText("1 = Twinkle-twinkle Little Star (小星星)", width/2, height/2 +10) 
-        ctx.fillText("2 = Old MacDonald Had a Farm (王老先生有塊地)", width/2, height/2 + +50)
-        ctx.fillText("3 = Ode to Joy", width/2, height/2 + +90)
-        ctx.fillText("4 = Tian MiMi (甜蜜蜜)", width/2, height/2 + +130)
-        ctx.fillText("5 = We Wish You A Merry Christmas", width/2, height/2 + +170)
+        ctx.font = "23px DotGothic16"
+        ctx.fillText("1 = Twinkle-twinkle Little Star (小星星)", width/2, height/2 ) 
+        ctx.fillText("2 = Old MacDonald Had a Farm (王老先生有塊地)", width/2, height/2 + 40)
+        ctx.fillText("3 = Ode to Joy", width/2, height/2 + 80)
+        ctx.fillText("4 = Tian MiMi (甜蜜蜜)", width/2, height/2 + 120)
+        ctx.fillText("5 = We Wish You A Merry Christmas", width/2, height/2 + 160)
 
+        drawTransition()
         return
     }
 
     //pilih level
-    ctx.font = "55px Arial"
+
+    ctx.font = "48px DotGothic16"
     ctx.fillText("CHOOSE LEVEL", width/2, height/2 - 120)
 
-    ctx.font = "35px Arial"
+    ctx.font = "28px DotGothic16"
     ctx.fillText("Song: " + songs[currentSong].name, width/2, height/2 - 50)
 
-    ctx.font = "30px Arial"
+    ctx.font = "28px DotGothic16"
     ctx.fillText("Press N = Normal", width/2, height/2 + 40)
     ctx.fillText("Press E = Easy", width/2, height/2 + 90)
+
+    drawTransition()
 }
 
 function game(){
@@ -345,6 +443,7 @@ function game(){
 
     if(exit) return
     ctx.clearRect(0,0,width,height)
+    setBg(songs[currentSong].bg)
     drawLanes()
     let musicTime = music.currentTime * 1000
     for(let i=0;i<notes.length;i++){
@@ -365,18 +464,20 @@ function game(){
     if(misses >= maxMiss && !gameOver){
 
         gameOver = true
+        startTransition()
         music.pause()
         music.currentTime = 0
     }
 
     if(!gameOver && !win && musicStarted && music.currentTime >= music.duration && misses < maxMiss){
         win = true
+        startTransition()
         music.pause()
     }
 
     if(gameOver){
         
-        ctx.filter = "blur(15px)"
+        ctx.filter = "blur(10px)"
         ctx.drawImage(canvas, 0, 0, width, height)
         ctx.filter = "none"
 
@@ -384,42 +485,49 @@ function game(){
         ctx.fillRect(0, 0, width, height)
 
         ctx.fillStyle = "red"
-        ctx.font = "60px Arial"
+        ctx.font = "bold 72px DotGothic16"
+        ctx.textAlign = "center"
         ctx.fillText("GAME OVER", width/2, height/2 - 40)
 
         ctx.fillStyle = "white"
-        ctx.font = "30px Arial"
+        ctx.font = "30px DotGothic16"
 
         ctx.fillText("Press ENTER Replay", width/2, height/2 + 40)
         ctx.fillText("Press SPACE to Change the Key", width/2, height/2 + 80)
         ctx.fillText("Press ESC Exit", width/2, height/2 + 120)
 
+        drawTransition()
+        requestAnimationFrame(game)
         return
     }
 
     if(win){
 
-        ctx.filter = "blur(15px)"
+        ctx.filter = "blur(10px)"
         ctx.drawImage(canvas, 0, 0, width, height)
         ctx.filter = "none"
 
         ctx.fillStyle = "rgba(0,0,0,0.6)"
         ctx.fillRect(0, 0, width, height)
 
-        ctx.fillStyle = "green"
-        ctx.font = "60px Arial"
+        ctx.fillStyle = "#0de002"
+        ctx.font = "bold 72px DotGothic16"
+        ctx.textAlign = "center"
         ctx.fillText("YOU WIN", width/2, height/2 - 40)
 
         ctx.fillStyle = "white"
-        ctx.font = "30px Arial"
+        ctx.font = "30px DotGothic16"
 
         ctx.fillText("Press ENTER Replay", width/2, height/2 + 40)
         ctx.fillText("Press SPACE to Change the Key", width/2, height/2 + 80)
         ctx.fillText("Press ESC Exit", width/2, height/2 + 120)
 
+        drawTransition()
+        requestAnimationFrame(game)
         return
     }
 
+    
     requestAnimationFrame(game)
 }
 
