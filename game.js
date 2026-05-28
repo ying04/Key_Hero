@@ -6,7 +6,7 @@ const canvas = document.getElementById("gameCanvas")
 const ctx = canvas.getContext("2d")
 
 canvas.width = window.innerWidth * 0.9
-canvas.height = window.innerHeight * 0.63
+canvas.height = window.innerHeight * 0.65
 
 const width = canvas.width
 const height = canvas.height
@@ -408,11 +408,11 @@ function beforeGame(){
         ctx.fillText("Press the number of the song that you want to play", width/2, height/2 - 60)
 
         ctx.font = "23px DotGothic16"
-        ctx.fillText("1 = Twinkle-twinkle Little Star (小星星)", width/2, height/2 - 10 ) 
-        ctx.fillText("2 = Old MacDonald Had a Farm (王老先生有塊地)", width/2, height/2 + 30)
-        ctx.fillText("3 = Ode to Joy", width/2, height/2 + 70)
-        ctx.fillText("4 = Tian MiMi (甜蜜蜜)", width/2, height/2 + 110)
-        ctx.fillText("5 = We Wish You A Merry Christmas", width/2, height/2 + 150)
+        ctx.fillText("1 = Twinkle-twinkle Little Star (小星星)", width/2, height/2 ) 
+        ctx.fillText("2 = Old MacDonald Had a Farm (王老先生有塊地)", width/2, height/2 + 40)
+        ctx.fillText("3 = Ode to Joy", width/2, height/2 + 80)
+        ctx.fillText("4 = Tian MiMi (甜蜜蜜)", width/2, height/2 + 120)
+        ctx.fillText("5 = We Wish You A Merry Christmas", width/2, height/2 + 160)
 
         drawTransition()
         return
