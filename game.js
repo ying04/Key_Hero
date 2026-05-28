@@ -51,8 +51,8 @@ const laneColor = ["#fca190", "#bff5f0", "#e2f0b4", "#fac296"]
 
 const songs = [
     {name:"Twinkle-twinkle Little Star (小星星)", audio:"twinkle.wav", midi:"twinkle.mid", bg : "Twinklebg.png"},
-    {name:"Old MacDonald Had a Farm (王老先生有塊地)", audio:"OldMcDHadAFarm.wav", midi:"OldMcDHadAFarm.mid", bg : "OldMacbg.png"},
-    {name:"Ode to Joy", audio:"odetojoy.wav", midi:"odetojoy.mid", bg : "Odebg.png"},
+    {name:"Old MacDonald Had a Farm (王老先生有塊地)", audio:"OldMcDHadAFarm.wav", midi:"OldMcDHadAFarm.mid", bg : "OldMacbg2.png"},
+    {name:"Ode to Joy", audio:"odetojoy.wav", midi:"odetojoy.mid", bg : "Odebg2.png"},
     {name:"Tian Mimi (甜蜜蜜)", audio:"tianmimi.wav", midi:"tianmimi.mid", bg : "tianmimibg.png"},
     {name:"We Wish You A Merry Christmas", audio:"WeWishYouAMerryChristmas.wav", midi:"WeWishYouAMerryChristmas2.mid", bg : "WeWishUbg.png"}
 ]
