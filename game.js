@@ -11,15 +11,23 @@ canvas.height = window.innerHeight * 0.65
 const width = canvas.width
 const height = canvas.height
 
-const lanes = 4
-const laneWidth = width / lanes
+const totalLanes = 4
+let activeLanes = totalLanes
+let laneWidth = width / activeLanes
 
 const hitZone = height - 150
-const hitTolerance = 150
 const noteTime = 1000
+
+// black box hit area
+const keyBoxY = hitZone + 25
+const keyBoxHeight = 55
+const keyBoxTolerance = 25
+const keyBoxCenter = keyBoxY + keyBoxHeight / 2
 
 const maxMiss = 10
 
+const supereasykey = "s"
+const supernormalkey = "m"
 const easykey = "e"
 const normalkey = "n"
 const replaykey = "Enter"
@@ -42,6 +50,8 @@ let transitionSpeed = 0.04
 let wait = true
 let normal = false
 let easy = false
+let superEasy = false
+let superNormal = false
 
 let choosingKeys = true
 let choosingSong = true
@@ -78,10 +88,8 @@ function drawBg(img, darkAmount = 0.35) {
         ctx.fillRect(0, 0, width, height)
     }
 
-    // dark overlay so the text, lanes, and notes are easier to see
     ctx.fillStyle = `rgba(0, 0, 0, ${darkAmount})`
     ctx.fillRect(0, 0, width, height)
-
 }
 
 function setBg(imagePath) {
@@ -105,21 +113,20 @@ function showKey(k){
 }
 
 function drawBox(){
-    for(let i=0;i<lanes;i++){
+    for(let i=0;i<activeLanes;i++){
         let x = i * laneWidth
-        let boxY = hitZone + 25
 
         ctx.fillStyle = "rgba(0, 0, 0, 0.55)"
-        ctx.fillRect(x + 20, boxY, laneWidth - 40, 55)
+        ctx.fillRect(x + 20, keyBoxY, laneWidth - 40, keyBoxHeight)
 
         ctx.strokeStyle = laneColor[i]
         ctx.lineWidth = 3
-        ctx.strokeRect(x + 20, boxY, laneWidth - 40, 55)
+        ctx.strokeRect(x + 20, keyBoxY, laneWidth - 40, keyBoxHeight)
 
         ctx.fillStyle = "white"
         ctx.font = "20px DotGothic16"
         ctx.textAlign = "center"
-        ctx.fillText(showKey(laneKeys[i]), x + laneWidth / 2, boxY + 36)
+        ctx.fillText(showKey(laneKeys[i]), x + laneWidth / 2, keyBoxY + 36)
     }
 }
 
@@ -134,7 +141,9 @@ class Note{
     getY(time){
         let spawnTime = this.hitTime - noteTime
         let progress = (time - spawnTime) / noteTime
-        return progress * hitZone
+
+        // note reaches the black box center when it should be hit
+        return progress * keyBoxCenter
     }
 
     draw(time){
@@ -176,7 +185,7 @@ async function loadMidi(){
             track.notes.forEach(note => {
 
                 let time = note.time * 1000
-                let lane = Math.floor(Math.random() * 4)
+                let lane = Math.floor(Math.random() * activeLanes)
 
                 notes.push(new Note(lane, time))
             })
@@ -188,18 +197,88 @@ async function loadMidi(){
 
             track.notes.forEach(note => {
                 let time = note.time * 1000
+
                 if(time - lastTime >= 700){
-                    let lane = Math.floor(Math.random() * 4)
+                    let lane = Math.floor(Math.random() * activeLanes)
                     notes.push(new Note(lane, time))
                     lastTime = time
                 }
             })
         }
 
+        if(superEasy){
+
+            let lastTime = -999
+
+            track.notes.forEach(note => {
+                let time = note.time * 1000
+
+                if(time - lastTime >= 700){
+                    let lane = Math.floor(Math.random() * 2)
+                    notes.push(new Note(lane, time))
+                    lastTime = time
+                }
+            })
+        }
+
+        if(superNormal){
+
+            track.notes.forEach(note => {
+
+                let time = note.time * 1000
+                let lane = Math.floor(Math.random() * 2)
+
+                notes.push(new Note(lane, time))
+            })
+        }
+
     })
 }
 
-document.addEventListener("keydown",(e)=>{
+async function startGameMode(mode){
+
+    normal = false
+    easy = false
+    superEasy = false
+    superNormal = false
+
+    if(mode === "normal"){
+        normal = true
+        activeLanes = 4
+        laneKeys = keyInput
+    }
+
+    if(mode === "easy"){
+        easy = true
+        activeLanes = 4
+        laneKeys = keyInput
+    }
+
+    if(mode === "superEasy"){
+        superEasy = true
+        activeLanes = 2
+        laneKeys = keyInput.slice(0, 2)
+    }
+
+    if(mode === "superNormal"){
+        superNormal = true
+        activeLanes = 2
+        laneKeys = keyInput.slice(0, 2)
+    }
+
+    laneWidth = width / activeLanes
+
+    await loadMidi()
+
+    music.pause()
+    music.currentTime = 0
+    musicStarted = false
+
+    wait = false
+    startTransition()
+}
+
+document.addEventListener("keydown", async (e)=>{
 
     if(choosingKeys){
 
@@ -217,68 +296,70 @@ document.addEventListener("keydown",(e)=>{
         return
     }
 
+    if(wait){
 
-if(wait){
+        if(choosingSong){
 
-    if(choosingSong){
+            if(e.key >= "1" && e.key <= "5"){
+                currentSong = Number(e.key) - 1
+                music = new Audio(songs[currentSong].audio)
+                choosingSong = false
+                startTransition()
+            }
 
-        if(e.key >= "1" && e.key <= "5"){
-            currentSong = Number(e.key) - 1
-            music = new Audio(songs[currentSong].audio)
-            choosingSong = false
-            startTransition()
+            return
         }
+
+        if(e.key === normalkey){
+            await startGameMode("normal")
+        }
+
+        if(e.key === easykey){
+            await startGameMode("easy")
+        }
+
+        if(e.key === supereasykey){
+            await startGameMode("superEasy")
+        }
+
+        if(e.key === supernormalkey){
+            await startGameMode("superNormal")
+        }
+
         return
     }
 
-    if(e.key === normalkey){
+    function resetGame() {
 
-        normal = true
-        easy = false
-        wait = false
-        startTransition()
-        loadMidi()
-    }
+        score = 0
+        misses = 0
+        notes = []
+        win = false
+        gameOver = false
+        exit = false
 
-    if(e.key === easykey){
+        wait = true
+        choosingSong = true
 
-        easy = true
         normal = false
-        wait = false
-        startTransition()
-        loadMidi()
+        easy = false
+        superEasy = false
+        superNormal = false
+
+        activeLanes = 4
+        laneKeys = keyInput
+        laneWidth = width / activeLanes
+
+        music.pause()
+        music.currentTime = 0
+        musicStarted = false
     }
-
-    return
-}
-
-function resetGame() {
-
-    score = 0
-    misses = 0
-    notes = []
-    win = false
-    gameOver = false
-    exit = false
-
-    wait = true
-    choosingSong = true
-    askChanges = false
-
-    normal = false
-    easy = false
-
-    music.pause()
-    music.currentTime = 0
-    musicStarted = false
-}
 
     if(gameOver || win){
 
         if(e.key === replaykey){
             resetGame()
             startTransition()
-            //requestAnimationFrame(game)
         }
 
         if(e.key === changekey){
@@ -299,7 +380,7 @@ function resetGame() {
         return
     }
 
-    let lane = laneKeys.indexOf(e.key)
+    let lane = laneKeys.slice(0, activeLanes).indexOf(e.key)
 
     if(lane == -1) return
 
@@ -308,11 +389,17 @@ function resetGame() {
     for(let i=0;i<notes.length;i++){
 
         let n = notes[i]
-        let error = Math.abs(n.hitTime - time)
-        if(n.lane == lane && error < hitTolerance){
+        let y = n.getY(time)
+
+        let insideBlackBox =
+            y >= keyBoxY - keyBoxTolerance &&
+            y <= keyBoxY + keyBoxHeight + keyBoxTolerance
+
+        if(n.lane == lane && insideBlackBox){
             score += 10
             notes.splice(i,1)
 
+            // music starts when the player hits the first note
             if(!musicStarted){
                 music.play()
                 musicStarted = true
@@ -326,7 +413,7 @@ function resetGame() {
 
 function drawLanes(){
 
-    for(let i=0;i<lanes;i++){
+    for(let i=0;i<activeLanes;i++){
 
         ctx.fillStyle = "rgba(255, 255, 255, 0.07)"
         ctx.fillRect(i * laneWidth, 0, laneWidth, height)
@@ -339,14 +426,12 @@ function drawLanes(){
         ctx.lineWidth = 3
         ctx.strokeRect(
             i * laneWidth + 8,
-            hitZone - 12,
+            keyBoxY - 12,
             laneWidth - 16,
-            24
+            keyBoxHeight + 24
         )
     }
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.2)"
-    ctx.fillRect(0, hitZone, width, 3)
     drawBox()
 }
 
@@ -394,11 +479,13 @@ function beforeGame(){
 
         ctx.fillText(preview, width/2, height/2 + 10)
 
+        ctx.font = "20px DotGothic16"
+        ctx.fillText("Super Easy and Super Normal will use your first 2 keys only", width/2, height/2 + 55)
+
         drawTransition()
         return
     }
 
-    //layar sbklm gameplay
     if(choosingSong){
 
         ctx.font = "48px DotGothic16"
@@ -418,8 +505,6 @@ function beforeGame(){
         return
     }
 
-    //pilih level
-
     ctx.font = "48px DotGothic16"
     ctx.fillText("CHOOSE LEVEL", width/2, height/2 - 120)
 
@@ -427,8 +512,11 @@ function beforeGame(){
     ctx.fillText("Song: " + songs[currentSong].name, width/2, height/2 - 50)
 
     ctx.font = "28px DotGothic16"
-    ctx.fillText("Press N = Normal", width/2, height/2 + 40)
-    ctx.fillText("Press E = Easy", width/2, height/2 + 90)
+    ctx.fillText("Press N = Normal", width/2, height/2 + 10)
+    ctx.fillText("Press E = Easy", width/2, height/2 + 60)
+    ctx.fillText("Press M = Super Normal (2 Lanes Only!)", width/2, height/2 + 110)
+    ctx.fillText("Press S = Super Easy (2 Lanes Only!)", width/2, height/2 + 160)
+    
 
     drawTransition()
 }
@@ -442,19 +530,24 @@ function game(){
     }
 
     if(exit) return
+
     ctx.clearRect(0,0,width,height)
     setBg(songs[currentSong].bg)
     drawLanes()
+
     let musicTime = music.currentTime * 1000
+
     for(let i=0;i<notes.length;i++){
         let n = notes[i]
         let y = n.getY(musicTime)
-        if(y > height + 30){
+
+        if(y > keyBoxY + keyBoxHeight + 30){
             notes.splice(i,1)
             misses++
             i--
             continue
         }
+
         n.draw(musicTime)
     }
 
@@ -527,7 +620,6 @@ function game(){
         return
     }
 
-    
     requestAnimationFrame(game)
 }
 
